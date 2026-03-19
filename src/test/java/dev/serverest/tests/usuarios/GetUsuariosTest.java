@@ -1,6 +1,5 @@
 package dev.serverest.tests.usuarios;
 
-import dev.serverest.assertions.UsuarioAssertions;
 import dev.serverest.clients.UsuarioClient;
 import dev.serverest.config.BaseTest;
 import dev.serverest.factories.UsuarioFactory;
@@ -13,7 +12,6 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import io.qameta.allure.Story;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -31,12 +29,7 @@ import static org.hamcrest.Matchers.notNullValue;
 @DisplayName("GET /usuarios - Listagem de usuários")
 class GetUsuariosTest extends BaseTest {
 
-    private UsuarioClient usuarioClient;
-
-    @BeforeEach
-    void init() {
-        usuarioClient = new UsuarioClient();
-    }
+    private final UsuarioClient usuarioClient = new UsuarioClient();
 
     @Test
     @Tag("smoke")
@@ -60,7 +53,8 @@ class GetUsuariosTest extends BaseTest {
     @DisplayName("Filtrar usuários por nome e verificar resultados correspondentes")
     void should_filterByNome_when_queryParamProvided() {
         Usuario request = UsuarioFactory.valido();
-        usuarioClient.criar(request);
+        String id = usuarioClient.criar(request).then().extract().path("_id");
+        registrarUsuario(id);
 
         Response response = usuarioClient.listarComFiltro("nome", request.getNome());
 
@@ -76,7 +70,8 @@ class GetUsuariosTest extends BaseTest {
     @DisplayName("Filtrar usuários por email e verificar resultados correspondentes")
     void should_filterByEmail_when_queryParamProvided() {
         Usuario request = UsuarioFactory.valido();
-        usuarioClient.criar(request);
+        String id = usuarioClient.criar(request).then().extract().path("_id");
+        registrarUsuario(id);
 
         Response response = usuarioClient.listarComFiltro("email", request.getEmail());
 
@@ -137,6 +132,7 @@ class GetUsuariosTest extends BaseTest {
         int quantidade = response.jsonPath().getInt("quantidade");
         int arraySize = response.jsonPath().getList("usuarios").size();
 
-        org.junit.jupiter.api.Assertions.assertEquals(quantidade, arraySize);
+        org.junit.jupiter.api.Assertions.assertEquals(quantidade, arraySize,
+                "Campo 'quantidade' deve corresponder ao tamanho do array 'usuarios'");
     }
 }

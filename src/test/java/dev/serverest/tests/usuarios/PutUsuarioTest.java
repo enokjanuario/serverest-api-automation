@@ -43,6 +43,7 @@ class PutUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         Usuario atualizado = UsuarioFactory.valido();
 
@@ -64,6 +65,8 @@ class PutUsuarioTest extends BaseTest {
         Usuario usuario = UsuarioFactory.valido();
 
         Response response = usuarioClient.atualizar(idInexistente, usuario);
+        String createdId = response.jsonPath().getString("_id");
+        registrarUsuario(createdId);
 
         response.then()
                 .statusCode(201)
@@ -78,18 +81,20 @@ class PutUsuarioTest extends BaseTest {
     @DisplayName("Rejeitar atualização quando email pertencer a outro usuário")
     void should_return400_when_emailBelongsToAnotherUser() {
         Usuario usuario1 = UsuarioFactory.valido();
-        usuarioClient.criar(usuario1).then().statusCode(201);
+        String id1 = usuarioClient.criar(usuario1).then().statusCode(201).extract().path("_id");
+        registrarUsuario(id1);
 
         Usuario usuario2 = UsuarioFactory.valido();
-        String idUsuario2 = usuarioClient.criar(usuario2)
+        String id2 = usuarioClient.criar(usuario2)
                 .then()
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id2);
 
         Usuario atualizacao = UsuarioFactory.comEmailEspecifico(usuario1.getEmail());
 
-        Response response = usuarioClient.atualizar(idUsuario2, atualizacao);
+        Response response = usuarioClient.atualizar(id2, atualizacao);
 
         response.then()
                 .statusCode(400)
@@ -108,6 +113,7 @@ class PutUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         Usuario semNome = UsuarioFactory.semCampo("nome");
 
@@ -129,6 +135,7 @@ class PutUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         Usuario atualizado = UsuarioFactory.valido();
 
@@ -152,6 +159,7 @@ class PutUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         Usuario atualizado = UsuarioFactory.valido();
         usuarioClient.atualizar(id, atualizado).then().statusCode(200);

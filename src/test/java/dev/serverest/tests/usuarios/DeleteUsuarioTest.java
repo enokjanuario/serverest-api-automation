@@ -1,11 +1,15 @@
 package dev.serverest.tests.usuarios;
 
-import dev.serverest.assertions.UsuarioAssertions;
 import dev.serverest.clients.CarrinhoClient;
 import dev.serverest.clients.LoginClient;
+import dev.serverest.clients.ProdutoClient;
 import dev.serverest.clients.UsuarioClient;
 import dev.serverest.config.BaseTest;
+import dev.serverest.factories.CarrinhoFactory;
+import dev.serverest.factories.ProdutoFactory;
 import dev.serverest.factories.UsuarioFactory;
+import dev.serverest.models.Carrinho;
+import dev.serverest.models.Produto;
 import dev.serverest.models.Usuario;
 
 import io.qameta.allure.Description;
@@ -19,11 +23,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
@@ -36,6 +37,7 @@ class DeleteUsuarioTest extends BaseTest {
 
     private final UsuarioClient usuarioClient = new UsuarioClient();
     private final LoginClient loginClient = new LoginClient();
+    private final ProdutoClient produtoClient = new ProdutoClient();
     private final CarrinhoClient carrinhoClient = new CarrinhoClient();
 
     @Test
@@ -87,28 +89,21 @@ class DeleteUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         String token = loginClient.obterToken(usuario.getEmail(), usuario.getPassword());
 
-        String idProduto = given()
-                .header("Authorization", token)
-                .body(Map.of(
-                        "nome", "Produto Test " + System.nanoTime(),
-                        "preco", 100,
-                        "descricao", "Test",
-                        "quantidade", 10
-                ))
-                .when()
-                .post("/produtos")
+        Produto produto = ProdutoFactory.valido();
+        String idProduto = produtoClient.criar(token, produto)
                 .then()
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarProduto(token, idProduto);
 
-        Map<String, Object> carrinho = Map.of(
-                "produtos", List.of(Map.of("idProduto", idProduto, "quantidade", 1))
-        );
+        Carrinho carrinho = CarrinhoFactory.comProduto(idProduto, 1);
         carrinhoClient.criar(token, carrinho).then().statusCode(201);
+        registrarCarrinho(token);
 
         Response response = usuarioClient.deletar(id);
 

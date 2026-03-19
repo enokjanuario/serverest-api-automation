@@ -18,6 +18,8 @@ import io.restassured.response.Response;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 import static org.hamcrest.Matchers.equalTo;
@@ -40,7 +42,8 @@ class LoginTest extends BaseTest {
     @DisplayName("Verificar retorno de token JWT ao autenticar com credenciais válidas")
     void should_returnToken_when_validCredentials() {
         Usuario usuario = UsuarioFactory.valido();
-        usuarioClient.criar(usuario);
+        String id = usuarioClient.criar(usuario).then().extract().path("_id");
+        registrarUsuario(id);
 
         LoginRequest loginRequest = LoginFactory.comCredenciais(usuario.getEmail(), usuario.getPassword());
 
@@ -77,7 +80,8 @@ class LoginTest extends BaseTest {
     @DisplayName("Rejeitar login com senha incorreta retornando 401")
     void should_return401_when_wrongPassword() {
         Usuario usuario = UsuarioFactory.valido();
-        usuarioClient.criar(usuario);
+        String id = usuarioClient.criar(usuario).then().extract().path("_id");
+        registrarUsuario(id);
 
         LoginRequest loginRequest = LoginFactory.comSenhaErrada(usuario.getEmail());
 
@@ -118,13 +122,23 @@ class LoginTest extends BaseTest {
                 .body("password", notNullValue());
     }
 
-    @Test
+    @ParameterizedTest(name = "Rejeitar login com email inválido: {0}")
+    @CsvSource({
+            "email-invalido",
+            "email@",
+            "@dominio.com",
+            "email sem arroba",
+            "email@.com"
+    })
     @Story("Login com formato de email invalido")
     @Severity(SeverityLevel.MINOR)
     @Description("Verifica que o login com formato de email invalido retorna 400")
     @DisplayName("Rejeitar login quando formato do email for inválido")
-    void should_return400_when_invalidEmailFormat() {
-        LoginRequest loginRequest = LoginFactory.comEmailInvalido();
+    void should_return400_when_invalidEmailFormat(String emailInvalido) {
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email(emailInvalido)
+                .password("senhaValida123")
+                .build();
 
         Response response = loginClient.login(loginRequest);
 
@@ -158,7 +172,8 @@ class LoginTest extends BaseTest {
     @DisplayName("Validar contrato JSON Schema da resposta de login bem-sucedido")
     void should_matchJsonSchema_when_loginSuccess() {
         Usuario usuario = UsuarioFactory.valido();
-        usuarioClient.criar(usuario);
+        String id = usuarioClient.criar(usuario).then().extract().path("_id");
+        registrarUsuario(id);
 
         LoginRequest loginRequest = LoginFactory.comCredenciais(usuario.getEmail(), usuario.getPassword());
 
@@ -183,5 +198,41 @@ class LoginTest extends BaseTest {
         response.then()
                 .statusCode(401)
                 .body(matchesJsonSchemaInClasspath("schemas/login-error-schema.json"));
+    }
+
+    @Test
+    @Tag("security")
+    @Story("Login com tentativa de SQL injection")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Verifica que a API rejeita tentativas de SQL injection no campo email")
+    @DisplayName("Rejeitar tentativa de SQL injection no campo email")
+    void should_reject_when_sqlInjectionInEmail() {
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("' OR 1=1 --")
+                .password("qualquerSenha")
+                .build();
+
+        Response response = loginClient.login(loginRequest);
+
+        response.then()
+                .statusCode(400);
+    }
+
+    @Test
+    @Tag("security")
+    @Story("Login com tentativa de XSS")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Verifica que a API rejeita tentativas de XSS no campo email")
+    @DisplayName("Rejeitar tentativa de XSS no campo email")
+    void should_reject_when_xssInEmail() {
+        LoginRequest loginRequest = LoginRequest.builder()
+                .email("<script>alert('xss')</script>@test.com")
+                .password("qualquerSenha")
+                .build();
+
+        Response response = loginClient.login(loginRequest);
+
+        response.then()
+                .statusCode(400);
     }
 }

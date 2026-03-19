@@ -1,5 +1,6 @@
 package dev.serverest.tests.produtos;
 
+import dev.serverest.assertions.ProdutoAssertions;
 import dev.serverest.clients.ProdutoClient;
 import dev.serverest.config.BaseTest;
 import dev.serverest.factories.ProdutoFactory;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
@@ -70,11 +72,9 @@ class ProdutoTest extends BaseTest {
         Produto produto = ProdutoFactory.valido();
 
         Response response = produtoClient.criar(token, produto);
+        registrarProduto(token, response.jsonPath().getString("_id"));
 
-        response.then()
-                .statusCode(201)
-                .body("_id", notNullValue())
-                .body("message", equalTo("Cadastro realizado com sucesso"));
+        ProdutoAssertions.validarProdutoCriado(response);
     }
 
     @Test
@@ -88,6 +88,7 @@ class ProdutoTest extends BaseTest {
         Produto produto = ProdutoFactory.valido();
 
         Response response = produtoClient.criar(token, produto);
+        registrarProduto(token, response.jsonPath().getString("_id"));
 
         response.then()
                 .statusCode(201)
@@ -108,6 +109,7 @@ class ProdutoTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarProduto(token, id);
 
         Response response = produtoClient.buscarPorId(id);
 
@@ -126,9 +128,7 @@ class ProdutoTest extends BaseTest {
     void should_return400_when_productIdNotFound() {
         Response response = produtoClient.buscarPorId("idInexistente123");
 
-        response.then()
-                .statusCode(400)
-                .body("message", equalTo("Produto não encontrado"));
+        ProdutoAssertions.validarProdutoNaoEncontrado(response);
     }
 
     @Test
@@ -145,6 +145,7 @@ class ProdutoTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarProduto(token, id);
 
         Response response = produtoClient.buscarPorId(id);
 
@@ -167,6 +168,7 @@ class ProdutoTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarProduto(token, id);
 
         Produto atualizado = ProdutoFactory.valido();
 
@@ -214,6 +216,22 @@ class ProdutoTest extends BaseTest {
                 .body("message", equalTo("Token de acesso ausente, inválido, expirado ou usuário do token não existe mais"));
     }
 
+    @Test
+    @Tag("security")
+    @Story("Criar produto com token invalido")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Deve retornar 401 ao criar produto com token forjado")
+    @DisplayName("Rejeitar criação de produto com token inválido/forjado")
+    void should_return401_when_invalidToken() {
+        Produto produto = ProdutoFactory.valido();
+
+        Response response = produtoClient.criar("Bearer token.invalido.forjado", produto);
+
+        response.then()
+                .statusCode(401)
+                .body("message", equalTo("Token de acesso ausente, inválido, expirado ou usuário do token não existe mais"));
+    }
+
     @ParameterizedTest(name = "Rejeitar criação de produto sem campo obrigatório: {0}")
     @ValueSource(strings = {"nome", "preco", "descricao", "quantidade"})
     @Story("Validacao de campos obrigatorios do produto")
@@ -226,9 +244,28 @@ class ProdutoTest extends BaseTest {
 
         Response response = produtoClient.criar(token, produto);
 
+        ProdutoAssertions.validarErroDeValidacao(response, campo);
+    }
+
+    @ParameterizedTest(name = "Rejeitar criação de produto com valor de preço inválido: {0}")
+    @CsvSource({
+            "0",
+            "-1",
+            "-100"
+    })
+    @Story("Validacao de valores invalidos de preco")
+    @Severity(SeverityLevel.NORMAL)
+    @Description("Deve retornar 400 ao criar produto com preco invalido")
+    @DisplayName("Rejeitar criação de produto com preço inválido")
+    void should_return400_when_invalidPrice(int preco) {
+        String token = criarUsuarioEObterToken();
+        Produto produto = ProdutoFactory.valido();
+        produto.setPreco(preco);
+
+        Response response = produtoClient.criar(token, produto);
+
         response.then()
-                .statusCode(400)
-                .body(campo, notNullValue());
+                .statusCode(400);
     }
 
     @Test
@@ -240,7 +277,8 @@ class ProdutoTest extends BaseTest {
     void should_return400_when_duplicateProductName() {
         String token = criarUsuarioEObterToken();
         Produto produto = ProdutoFactory.valido();
-        produtoClient.criar(token, produto).then().statusCode(201);
+        String id = produtoClient.criar(token, produto).then().statusCode(201).extract().path("_id");
+        registrarProduto(token, id);
 
         Produto duplicado = ProdutoFactory.valido();
         duplicado.setNome(produto.getNome());

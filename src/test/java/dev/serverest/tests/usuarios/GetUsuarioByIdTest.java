@@ -12,7 +12,6 @@ import io.qameta.allure.Severity;
 import io.qameta.allure.SeverityLevel;
 import io.qameta.allure.Story;
 import io.restassured.response.Response;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -26,12 +25,7 @@ import static org.hamcrest.Matchers.notNullValue;
 @DisplayName("GET /usuarios/{_id} - Busca por ID")
 class GetUsuarioByIdTest extends BaseTest {
 
-    private UsuarioClient usuarioClient;
-
-    @BeforeEach
-    void init() {
-        usuarioClient = new UsuarioClient();
-    }
+    private final UsuarioClient usuarioClient = new UsuarioClient();
 
     @Test
     @Tag("smoke")
@@ -42,6 +36,7 @@ class GetUsuarioByIdTest extends BaseTest {
     void should_return200WithUser_when_validId() {
         Usuario request = UsuarioFactory.valido();
         String id = usuarioClient.criar(request).jsonPath().getString("_id");
+        registrarUsuario(id);
 
         Response response = usuarioClient.buscarPorId(id);
 
@@ -74,6 +69,7 @@ class GetUsuarioByIdTest extends BaseTest {
     void should_matchJsonSchema_when_foundById() {
         Usuario request = UsuarioFactory.valido();
         String id = usuarioClient.criar(request).jsonPath().getString("_id");
+        registrarUsuario(id);
 
         Response response = usuarioClient.buscarPorId(id);
 
@@ -91,6 +87,7 @@ class GetUsuarioByIdTest extends BaseTest {
     void should_returnCorrectData_when_foundById() {
         Usuario request = UsuarioFactory.valido();
         String id = usuarioClient.criar(request).jsonPath().getString("_id");
+        registrarUsuario(id);
 
         Response response = usuarioClient.buscarPorId(id);
 

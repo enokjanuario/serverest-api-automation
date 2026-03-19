@@ -1,5 +1,6 @@
 package dev.serverest.tests.carrinhos;
 
+import dev.serverest.assertions.CarrinhoAssertions;
 import dev.serverest.clients.CarrinhoClient;
 import dev.serverest.clients.ProdutoClient;
 import dev.serverest.config.BaseTest;
@@ -74,11 +75,9 @@ class CarrinhoTest extends BaseTest {
         Carrinho carrinho = CarrinhoFactory.comProduto(idProduto, 1);
 
         Response response = carrinhoClient.criar(token, carrinho);
+        registrarCarrinho(token);
 
-        response.then()
-                .statusCode(201)
-                .body("message", equalTo("Cadastro realizado com sucesso"))
-                .body("_id", notNullValue());
+        CarrinhoAssertions.validarCarrinhoCriado(response);
     }
 
     @Test
@@ -91,9 +90,21 @@ class CarrinhoTest extends BaseTest {
 
         Response response = carrinhoClient.criar("", carrinho);
 
-        response.then()
-                .statusCode(401)
-                .body("message", equalTo("Token de acesso ausente, inválido, expirado ou usuário do token não existe mais"));
+        CarrinhoAssertions.validarTokenAusenteOuInvalido(response);
+    }
+
+    @Test
+    @Tag("security")
+    @Story("Criar carrinho com token invalido")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Deve retornar 401 ao criar carrinho com token forjado")
+    @DisplayName("Rejeitar criação de carrinho com token inválido/forjado")
+    void should_return401_when_invalidToken() {
+        Carrinho carrinho = CarrinhoFactory.comProduto("qualquerId", 1);
+
+        Response response = carrinhoClient.criar("Bearer token.invalido.forjado", carrinho);
+
+        CarrinhoAssertions.validarTokenAusenteOuInvalido(response);
     }
 
     @Test
@@ -109,6 +120,7 @@ class CarrinhoTest extends BaseTest {
 
         Carrinho carrinho1 = CarrinhoFactory.comProduto(idProduto1, 1);
         carrinhoClient.criar(token, carrinho1).then().statusCode(201);
+        registrarCarrinho(token);
 
         Carrinho carrinho2 = CarrinhoFactory.comProduto(idProduto2, 1);
 
@@ -150,9 +162,7 @@ class CarrinhoTest extends BaseTest {
 
         Response response = carrinhoClient.concluirCompra(token);
 
-        response.then()
-                .statusCode(200)
-                .body("message", equalTo("Registro excluído com sucesso"));
+        CarrinhoAssertions.validarCompraConcluida(response);
     }
 
     @Test
@@ -170,17 +180,17 @@ class CarrinhoTest extends BaseTest {
 
         Response response = carrinhoClient.cancelarCompra(token);
 
-        response.then()
-                .statusCode(200)
-                .body("message", equalTo("Registro excluído com sucesso. Estoque dos produtos reabastecido"));
+        CarrinhoAssertions.validarCompraCancelada(response);
     }
 
     private String criarProdutoEExtrairId(String token) {
         Produto produto = ProdutoFactory.valido();
-        return produtoClient.criar(token, produto)
+        String id = produtoClient.criar(token, produto)
                 .then()
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarProduto(token, id);
+        return id;
     }
 }

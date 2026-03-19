@@ -32,4 +32,11 @@ public final class UsuarioAssertions {
                 .statusCode(200)
                 .body("usuarios._id", hasItem(equalTo(id)));
     }
+
+    @Step("Validar mensagem de erro: {mensagemEsperada}")
+    public static void validarMensagemDeErro(Response response, int statusCode, String mensagemEsperada) {
+        response.then()
+                .statusCode(statusCode)
+                .body("message", equalTo(mensagemEsperada));
+    }
 }

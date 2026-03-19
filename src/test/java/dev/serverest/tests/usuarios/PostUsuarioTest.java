@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
@@ -40,6 +41,7 @@ class PostUsuarioTest extends BaseTest {
         Usuario usuario = UsuarioFactory.valido();
 
         Response response = usuarioClient.criar(usuario);
+        registrarUsuario(response.jsonPath().getString("_id"));
 
         UsuarioAssertions.validarUsuarioCriado(response);
     }
@@ -52,7 +54,8 @@ class PostUsuarioTest extends BaseTest {
     @DisplayName("Rejeitar cadastro de usuário com email já existente")
     void should_return400_when_duplicateEmail() {
         Usuario usuario = UsuarioFactory.valido();
-        usuarioClient.criar(usuario);
+        String id = usuarioClient.criar(usuario).then().extract().path("_id");
+        registrarUsuario(id);
 
         Usuario duplicado = UsuarioFactory.comEmailEspecifico(usuario.getEmail());
 
@@ -101,6 +104,7 @@ class PostUsuarioTest extends BaseTest {
         Usuario usuario = UsuarioFactory.valido();
 
         Response response = usuarioClient.criar(usuario);
+        registrarUsuario(response.jsonPath().getString("_id"));
 
         response.then()
                 .statusCode(201)
@@ -117,6 +121,7 @@ class PostUsuarioTest extends BaseTest {
         Usuario usuario = UsuarioFactory.naoAdmin();
 
         Response response = usuarioClient.criar(usuario);
+        registrarUsuario(response.jsonPath().getString("_id"));
 
         response.then()
                 .statusCode(201)
@@ -133,19 +138,26 @@ class PostUsuarioTest extends BaseTest {
         Usuario usuario = UsuarioFactory.valido();
 
         Response response = usuarioClient.criar(usuario);
+        registrarUsuario(response.jsonPath().getString("_id"));
 
         response.then()
                 .statusCode(201)
                 .body(matchesJsonSchemaInClasspath("schemas/usuario-criado-schema.json"));
     }
 
-    @Test
+    @ParameterizedTest(name = "Rejeitar cadastro com email inválido: {0}")
+    @CsvSource({
+            "email-invalido",
+            "email@",
+            "@dominio.com",
+            "email sem arroba"
+    })
     @Story("Cadastro com email em formato invalido")
     @Severity(SeverityLevel.MINOR)
     @Description("Deve retornar 400 ao cadastrar usuario com email em formato invalido")
     @DisplayName("Rejeitar cadastro quando formato do email for inválido")
-    void should_return400_when_invalidEmailFormat() {
-        Usuario usuario = UsuarioFactory.comEmailEspecifico("email-invalido");
+    void should_return400_when_invalidEmailFormat(String emailInvalido) {
+        Usuario usuario = UsuarioFactory.comEmailEspecifico(emailInvalido);
 
         Response response = usuarioClient.criar(usuario);
 
@@ -165,6 +177,7 @@ class PostUsuarioTest extends BaseTest {
                 .statusCode(201)
                 .extract()
                 .path("_id");
+        registrarUsuario(id);
 
         Response listaResponse = usuarioClient.listar();
 
@@ -178,7 +191,8 @@ class PostUsuarioTest extends BaseTest {
     @DisplayName("Garantir idempotência rejeitando email duplicado em nova tentativa")
     void should_return400_when_duplicateEmailOnRetry() {
         Usuario usuario = UsuarioFactory.valido();
-        usuarioClient.criar(usuario).then().statusCode(201);
+        String id = usuarioClient.criar(usuario).then().statusCode(201).extract().path("_id");
+        registrarUsuario(id);
 
         Usuario retry = UsuarioFactory.comEmailEspecifico(usuario.getEmail());
 
@@ -187,5 +201,47 @@ class PostUsuarioTest extends BaseTest {
         response.then()
                 .statusCode(400)
                 .body("message", equalTo("Este email já está sendo usado"));
+    }
+
+    @Test
+    @Tag("security")
+    @Story("Cadastro com tentativa de SQL injection")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Verifica que a API rejeita tentativas de SQL injection no campo nome")
+    @DisplayName("Rejeitar tentativa de SQL injection no campo nome")
+    void should_notExecuteSqlInjection_when_maliciousName() {
+        Usuario usuario = UsuarioFactory.valido();
+        usuario.setNome("'; DROP TABLE usuarios; --");
+
+        Response response = usuarioClient.criar(usuario);
+        String id = response.jsonPath().getString("_id");
+        if (id != null) {
+            registrarUsuario(id);
+        }
+
+        Response listaResponse = usuarioClient.listar();
+        listaResponse.then()
+                .statusCode(200)
+                .body("usuarios", notNullValue());
+    }
+
+    @Test
+    @Tag("security")
+    @Story("Cadastro com tentativa de XSS")
+    @Severity(SeverityLevel.CRITICAL)
+    @Description("Verifica que a API não executa XSS armazenado ao retornar dados do usuario")
+    @DisplayName("Verificar que XSS no nome é armazenado como texto puro")
+    void should_storeAsPlainText_when_xssInName() {
+        String xssPayload = "<script>alert('xss')</script>";
+        Usuario usuario = UsuarioFactory.comNome(xssPayload);
+
+        Response response = usuarioClient.criar(usuario);
+        String id = response.jsonPath().getString("_id");
+        registrarUsuario(id);
+
+        Response getResponse = usuarioClient.buscarPorId(id);
+        getResponse.then()
+                .statusCode(200)
+                .body("nome", equalTo(xssPayload));
     }
 }

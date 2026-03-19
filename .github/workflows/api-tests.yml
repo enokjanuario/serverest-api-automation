@@ -46,6 +46,14 @@ jobs:
           path: target/allure-results
           retention-days: 5
 
+      - name: Upload PDF Report (Smoke)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-report-smoke
+          path: target/test-report.pdf
+          retention-days: 30
+
   regression-tests:
     name: Regression Tests
     needs: smoke-tests
@@ -83,6 +91,14 @@ jobs:
         with:
           name: allure-report
           path: target/site/allure-maven-plugin
+          retention-days: 30
+
+      - name: Upload PDF Report (Regression)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-report-regression
+          path: target/test-report.pdf
           retention-days: 30
 
       - name: Setup Pages

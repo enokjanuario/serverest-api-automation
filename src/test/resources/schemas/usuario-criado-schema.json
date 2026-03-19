@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Usuario criado",
+  "description": "Schema da resposta de criacao de usuario com message e _id",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "_id": {
+      "type": "string"
+    }
+  },
+  "required": ["message", "_id"],
+  "additionalProperties": false
+}

@@ -1,0 +1,5 @@
+id: custom-logo
+name: Custom Logo Plugin
+description: Replaces default Allure logo with Carrefour logo
+cssFiles:
+  - styles.css

@@ -1,0 +1,13 @@
+.side-nav__brand {
+    background: url('logo_carrefour.png') no-repeat center center !important;
+    background-size: contain !important;
+    height: 60px !important;
+}
+
+.side-nav__brand-text {
+    display: none !important;
+}
+
+.side-nav__brand svg {
+    display: none !important;
+}

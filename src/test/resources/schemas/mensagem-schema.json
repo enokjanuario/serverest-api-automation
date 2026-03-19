@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mensagem",
+  "description": "Generic message response schema used across ServeRest API endpoints",
+  "type": "object",
+  "properties": {
+    "message": {
+      "type": "string"
+    }
+  },
+  "required": ["message"],
+  "additionalProperties": false
+}
